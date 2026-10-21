@@ -1,0 +1,26 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Daftar staf: semua orang boleh membaca (untuk pilihan nama di halaman absensi).
+    // Hanya resepsionis (sudah login) yang boleh menambah/mengubah/menghapus.
+    match /staff/{id} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Absensi: staf boleh MENAMBAH catatan saja (tidak bisa membaca/mengubah/menghapus).
+    // Resepsionis (login) boleh membaca dan mengelola.
+    match /attendance/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['staffId', 'staffName', 'type', 'ts', 'day'])
+                    && request.resource.data.type in ['in', 'out']
+                    && request.resource.data.ts == request.time;
+      allow read, update, delete: if request.auth != null;
+    }
+
+    // Data tamu: hanya resepsionis (login).
+    match /guests/{id} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

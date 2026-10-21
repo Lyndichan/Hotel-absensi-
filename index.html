@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Absensi &amp; CI/CO Hotel</title>
+<style>
+  :root { --bg:#f4f6f8; --card:#fff; --ink:#1c2430; --mute:#6b7685; --line:#e2e6eb; --brand:#1f6feb; --ok:#1a7f4b; --warn:#b4540a; --bad:#c62828; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:var(--brand); color:#fff; padding:14px 16px; font-weight:600; font-size:18px; }
+  .wrap { max-width:900px; margin:0 auto; padding:12px; }
+  .tabs { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+  .tab { flex:1; min-width:110px; padding:10px; border:1px solid var(--line); background:var(--card); border-radius:10px; font-size:15px; cursor:pointer; }
+  .tab.on { background:var(--brand); color:#fff; border-color:var(--brand); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; }
+  h2 { margin:0 0 10px; font-size:17px; }
+  label { display:block; font-size:13px; color:var(--mute); margin:10px 0 4px; }
+  input, select, button { font:inherit; }
+  input, select { width:100%; padding:10px; border:1px solid var(--line); border-radius:8px; background:#fff; }
+  button { padding:10px 14px; border:0; border-radius:8px; background:var(--brand); color:#fff; cursor:pointer; }
+  button.ok { background:var(--ok); } button.warn { background:var(--warn); } button.bad { background:var(--bad); } button.ghost { background:#e9edf2; color:var(--ink); }
+  .row { display:flex; gap:8px; flex-wrap:wrap; } .row > * { flex:1; }
+  .big { padding:16px; font-size:18px; }
+  .msg { margin-top:10px; padding:10px; border-radius:8px; font-size:14px; display:none; }
+  .msg.show { display:block; } .msg.good { background:#e5f5ec; color:var(--ok); } .msg.err { background:#fdeaea; color:var(--bad); }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--mute); font-weight:600; font-size:12px; }
+  .scroll { overflow-x:auto; }
+  .hide { display:none !important; }
+  .mute { color:var(--mute); font-size:13px; }
+  .tag { display:inline-block; padding:2px 8px; border-radius:99px; font-size:12px; background:#e5f5ec; color:var(--ok); }
+</style>
+</head>
+<body>
+<header id="judul">Absensi &amp; CI/CO Hotel</header>
+<div class="wrap">
+  <div class="tabs">
+    <button class="tab on" data-view="staf">Absensi Staf</button>
+    <button class="tab" data-view="resepsionis">Resepsionis</button>
+  </div>
+
+  <!-- ===== HALAMAN STAF ===== -->
+  <section id="view-staf">
+    <div class="card">
+      <h2>Absensi</h2>
+      <div id="jam" class="mute"></div>
+      <label for="staf-nama">Nama</label>
+      <select id="staf-nama"><option value="">Memuat daftar staf…</option></select>
+      <label for="staf-pin">PIN</label>
+      <input id="staf-pin" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN Anda">
+      <div class="row" style="margin-top:14px">
+        <button class="big ok" id="btn-masuk">Masuk</button>
+        <button class="big warn" id="btn-pulang">Pulang</button>
+      </div>
+      <div id="staf-msg" class="msg"></div>
+    </div>
+  </section>
+
+  <!-- ===== HALAMAN RESEPSIONIS ===== -->
+  <section id="view-resepsionis" class="hide">
+    <div id="login-box" class="card">
+      <h2>Login Resepsionis</h2>
+      <label for="adm-email">Email</label>
+      <input id="adm-email" type="email" autocomplete="username">
+      <label for="adm-pass">Password</label>
+      <input id="adm-pass" type="password" autocomplete="current-password">
+      <div style="margin-top:14px"><button id="btn-login">Masuk</button></div>
+      <div id="login-msg" class="msg"></div>
+    </div>
+
+    <div id="adm-box" class="hide">
+      <div class="row" style="margin-bottom:12px">
+        <div class="tabs" style="margin:0;flex:3">
+          <button class="tab on" data-sub="tamu">Tamu CI/CO</button>
+          <button class="tab" data-sub="absen">Rekap Absensi</button>
+          <button class="tab" data-sub="stafmgmt">Kelola Staf</button>
+        </div>
+        <button class="ghost" id="btn-logout" style="flex:0 0 auto">Keluar</button>
+      </div>
+
+      <!-- TAMU -->
+      <div id="sub-tamu">
+        <div class="card">
+          <h2>Check-in tamu baru</h2>
+          <div class="row">
+            <div><label for="g-nama">Nama tamu</label><input id="g-nama"></div>
+            <div><label for="g-kamar">No. kamar</label><input id="g-kamar"></div>
+          </div>
+          <label for="g-ci">Waktu check-in</label>
+          <input id="g-ci" type="datetime-local">
+          <div style="margin-top:12px"><button id="btn-ci" class="ok">Simpan Check-in</button></div>
+          <div id="g-msg" class="msg"></div>
+        </div>
+
+        <div class="card">
+          <h2>Sedang menginap <span id="jml-inhouse" class="tag">0</span></h2>
+          <div class="scroll"><table>
+            <thead><tr><th>Kamar</th><th>Nama</th><th>Check-in</th><th></th></tr></thead>
+            <tbody id="tb-inhouse"></tbody>
+          </table></div>
+        </div>
+
+        <div class="card">
+          <h2>Riwayat check-out</h2>
+          <div class="row">
+            <div><label for="f-tgl">Filter tanggal check-out</label><input id="f-tgl" type="date"></div>
+            <div style="align-self:end"><button class="ghost" id="btn-f-reset">Semua</button></div>
+          </div>
+          <div class="scroll" style="margin-top:8px"><table>
+            <thead><tr><th>Kamar</th><th>Nama</th><th>Check-in</th><th>Check-out</th></tr></thead>
+            <tbody id="tb-riwayat"></tbody>
+          </table></div>
+          <div style="margin-top:12px" class="row">
+            <button id="btn-csv-tamu">Unduh Excel/CSV (semua tamu)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ABSENSI -->
+      <div id="sub-absen" class="hide">
+        <div class="card">
+          <h2>Rekap absensi</h2>
+          <label for="a-bulan">Bulan</label>
+          <input id="a-bulan" type="month">
+          <div class="scroll" style="margin-top:10px"><table>
+            <thead><tr><th>Tanggal</th><th>Nama</th><th>Masuk</th><th>Pulang</th></tr></thead>
+            <tbody id="tb-absen"></tbody>
+          </table></div>
+          <div style="margin-top:12px"><button id="btn-csv-absen">Unduh Excel/CSV (bulan ini)</button></div>
+        </div>
+      </div>
+
+      <!-- KELOLA STAF -->
+      <div id="sub-stafmgmt" class="hide">
+        <div class="card">
+          <h2>Tambah staf</h2>
+          <div class="row">
+            <div><label for="s-nama">Nama staf</label><input id="s-nama"></div>
+            <div><label for="s-pin">PIN (angka, min. 4)</label><input id="s-pin" inputmode="numeric" maxlength="8"></div>
+          </div>
+          <div style="margin-top:12px"><button id="btn-tambah-staf">Tambah</button></div>
+          <div id="s-msg" class="msg"></div>
+        </div>
+        <div class="card">
+          <h2>Daftar staf</h2>
+          <div class="scroll"><table>
+            <thead><tr><th>Nama</th><th></th></tr></thead>
+            <tbody id="tb-staf"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script type="module">
+import { firebaseConfig, NAMA_HOTEL } from "./firebase-config.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit, serverTimestamp, Timestamp }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+const pad = (n) => String(n).padStart(2, "0");
+const localDay = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const fmtDT = (d) => d ? `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}` : "";
+const fmtT = (d) => d ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : "";
+const toDate = (ts) => ts && ts.toDate ? ts.toDate() : null;
+
+document.title = `Absensi & CI/CO – ${NAMA_HOTEL}`;
+$("judul").textContent = `${NAMA_HOTEL} – Absensi & CI/CO`;
+
+function showMsg(el, text, ok = true) {
+  el.textContent = text;
+  el.className = "msg show " + (ok ? "good" : "err");
+}
+async function sha256(text) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+function downloadCSV(filename, rows) {
+  const csv = rows.map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n");
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ---------- Navigasi ----------
+document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll("[data-view]").forEach((x) => x.classList.toggle("on", x === b));
+  $("view-staf").classList.toggle("hide", b.dataset.view !== "staf");
+  $("view-resepsionis").classList.toggle("hide", b.dataset.view !== "resepsionis");
+}));
+document.querySelectorAll("[data-sub]").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll("[data-sub]").forEach((x) => x.classList.toggle("on", x === b));
+  ["tamu", "absen", "stafmgmt"].forEach((k) => $("sub-" + k).classList.toggle("hide", b.dataset.sub !== k));
+}));
+
+// ---------- Jam ----------
+setInterval(() => { $("jam").textContent = new Date().toLocaleString("id-ID", { dateStyle: "full", timeStyle: "medium" }); }, 1000);
+
+// ---------- Daftar staf (publik) ----------
+let staffList = [];
+onSnapshot(query(collection(db, "staff"), orderBy("nama")), (snap) => {
+  staffList = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const sel = $("staf-nama");
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— pilih nama —</option>' + staffList.map((s) => `<option value="${esc(s.id)}">${esc(s.nama)}</option>`).join("");
+  sel.value = cur;
+  $("tb-staf").innerHTML = staffList.map((s) => `<tr><td>${esc(s.nama)}</td><td><button class="bad" data-del-staf="${esc(s.id)}">Hapus</button></td></tr>`).join("")
+    || '<tr><td colspan="2" class="mute">Belum ada staf.</td></tr>';
+}, (e) => { $("staf-nama").innerHTML = '<option value="">Gagal memuat (cek firebase-config.js)</option>'; console.error(e); });
+
+// ---------- Absensi staf ----------
+async function catatAbsen(type) {
+  const msg = $("staf-msg");
+  const id = $("staf-nama").value;
+  const pin = $("staf-pin").value.trim();
+  if (!id || !pin) return showMsg(msg, "Pilih nama dan isi PIN dulu.", false);
+  const s = staffList.find((x) => x.id === id);
+  if (!s || (await sha256(pin)) !== s.pinHash) return showMsg(msg, "PIN salah.", false);
+  try {
+    await addDoc(collection(db, "attendance"), { staffId: id, staffName: s.nama, type, ts: serverTimestamp(), day: localDay() });
+    $("staf-pin").value = "";
+    showMsg(msg, `${type === "in" ? "Masuk" : "Pulang"} tercatat untuk ${s.nama} pukul ${fmtT(new Date())}.`);
+  } catch (e) { console.error(e); showMsg(msg, "Gagal menyimpan. Cek koneksi internet.", false); }
+}
+$("btn-masuk").addEventListener("click", () => catatAbsen("in"));
+$("btn-pulang").addEventListener("click", () => catatAbsen("out"));
+
+// ---------- Login resepsionis ----------
+$("btn-login").addEventListener("click", async () => {
+  try { await signInWithEmailAndPassword(auth, $("adm-email").value.trim(), $("adm-pass").value); $("adm-pass").value = ""; }
+  catch (e) { showMsg($("login-msg"), "Email atau password salah.", false); }
+});
+$("btn-logout").addEventListener("click", () => signOut(auth));
+
+let unsubs = [];
+onAuthStateChanged(auth, (user) => {
+  unsubs.forEach((u) => u()); unsubs = [];
+  $("login-box").classList.toggle("hide", !!user);
+  $("adm-box").classList.toggle("hide", !user);
+  if (user) startAdmin();
+});
+
+// ---------- Panel resepsionis ----------
+let guests = [];
+const defaultCI = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
+$("g-ci").value = defaultCI();
+$("a-bulan").value = localDay().slice(0, 7);
+
+function startAdmin() {
+  unsubs.push(onSnapshot(query(collection(db, "guests"), orderBy("ciAt", "desc"), limit(500)), (snap) => {
+    guests = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderGuests();
+  }, console.error));
+  watchAbsen();
+}
+let unsubAbsen = null;
+let absenRows = [];
+function watchAbsen() {
+  if (unsubAbsen) unsubAbsen();
+  const bln = $("a-bulan").value;
+  if (!bln) return;
+  const q = query(collection(db, "attendance"), where("day", ">=", bln + "-01"), where("day", "<=", bln + "-31"));
+  unsubAbsen = onSnapshot(q, (snap) => {
+    const recs = snap.docs.map((d) => d.data()).sort((a, b) => (toDate(a.ts)?.getTime() || 0) - (toDate(b.ts)?.getTime() || 0));
+    const map = new Map();
+    for (const r of recs) {
+      const key = r.day + "|" + r.staffId;
+      const row = map.get(key) || { day: r.day, nama: r.staffName, masuk: null, pulang: null };
+      const t = toDate(r.ts);
+      if (r.type === "in" && !row.masuk) row.masuk = t;
+      if (r.type === "out") row.pulang = t;
+      map.set(key, row);
+    }
+    absenRows = [...map.values()].sort((a, b) => b.day.localeCompare(a.day) || a.nama.localeCompare(b.nama));
+    $("tb-absen").innerHTML = absenRows.map((r) => `<tr><td>${esc(r.day)}</td><td>${esc(r.nama)}</td><td>${fmtT(r.masuk) || "-"}</td><td>${fmtT(r.pulang) || "-"}</td></tr>`).join("")
+      || '<tr><td colspan="4" class="mute">Belum ada data bulan ini.</td></tr>';
+  }, console.error);
+  unsubs.push(() => unsubAbsen && unsubAbsen());
+}
+$("a-bulan").addEventListener("change", () => { if (auth.currentUser) watchAbsen(); });
+
+function renderGuests() {
+  const inhouse = guests.filter((g) => !g.coAt);
+  $("jml-inhouse").textContent = inhouse.length;
+  $("tb-inhouse").innerHTML = inhouse.map((g) =>
+    `<tr><td>${esc(g.room)}</td><td>${esc(g.name)}</td><td>${fmtDT(toDate(g.ciAt))}</td><td><button class="warn" data-co="${esc(g.id)}">Check-out</button></td></tr>`
+  ).join("") || '<tr><td colspan="4" class="mute">Tidak ada tamu menginap.</td></tr>';
+
+  const f = $("f-tgl").value;
+  const done = guests.filter((g) => g.coAt && (!f || localDay(toDate(g.coAt)) === f))
+    .sort((a, b) => toDate(b.coAt) - toDate(a.coAt));
+  $("tb-riwayat").innerHTML = done.map((g) =>
+    `<tr><td>${esc(g.room)}</td><td>${esc(g.name)}</td><td>${fmtDT(toDate(g.ciAt))}</td><td>${fmtDT(toDate(g.coAt))}</td></tr>`
+  ).join("") || '<tr><td colspan="4" class="mute">Belum ada riwayat.</td></tr>';
+}
+$("f-tgl").addEventListener("change", renderGuests);
+$("btn-f-reset").addEventListener("click", () => { $("f-tgl").value = ""; renderGuests(); });
+
+$("btn-ci").addEventListener("click", async () => {
+  const name = $("g-nama").value.trim(), room = $("g-kamar").value.trim(), ci = $("g-ci").value;
+  if (!name || !room || !ci) return showMsg($("g-msg"), "Nama, kamar, dan waktu check-in wajib diisi.", false);
+  try {
+    await addDoc(collection(db, "guests"), { name, room, ciAt: Timestamp.fromDate(new Date(ci)), coAt: null });
+    $("g-nama").value = ""; $("g-kamar").value = ""; $("g-ci").value = defaultCI();
+    showMsg($("g-msg"), `Check-in ${name} (kamar ${room}) tersimpan.`);
+  } catch (e) { console.error(e); showMsg($("g-msg"), "Gagal menyimpan.", false); }
+});
+
+document.addEventListener("click", async (e) => {
+  const co = e.target.closest("[data-co]");
+  if (co && confirm("Check-out tamu ini sekarang?")) await updateDoc(doc(db, "guests", co.dataset.co), { coAt: serverTimestamp() });
+  const del = e.target.closest("[data-del-staf]");
+  if (del && confirm("Hapus staf ini? Catatan absensi lama tetap tersimpan.")) await deleteDoc(doc(db, "staff", del.dataset.delStaf));
+});
+
+$("btn-csv-tamu").addEventListener("click", () => {
+  downloadCSV(`tamu-${localDay()}.csv`, [["Kamar", "Nama", "Check-in", "Check-out"],
+    ...guests.map((g) => [g.room, g.name, fmtDT(toDate(g.ciAt)), fmtDT(toDate(g.coAt))])]);
+});
+$("btn-csv-absen").addEventListener("click", () => {
+  downloadCSV(`absensi-${$("a-bulan").value}.csv`, [["Tanggal", "Nama", "Masuk", "Pulang"],
+    ...absenRows.map((r) => [r.day, r.nama, fmtT(r.masuk), fmtT(r.pulang)])]);
+});
+
+$("btn-tambah-staf").addEventListener("click", async () => {
+  const nama = $("s-nama").value.trim(), pin = $("s-pin").value.trim();
+  if (!nama) return showMsg($("s-msg"), "Nama wajib diisi.", false);
+  if (!/^\d{4,8}$/.test(pin)) return showMsg($("s-msg"), "PIN harus 4–8 angka.", false);
+  try {
+    await addDoc(collection(db, "staff"), { nama, pinHash: await sha256(pin) });
+    $("s-nama").value = ""; $("s-pin").value = "";
+    showMsg($("s-msg"), `Staf ${nama} ditambahkan.`);
+  } catch (e) { console.error(e); showMsg($("s-msg"), "Gagal menambah staf.", false); }
+});
+</script>
+</body>
+</html>
