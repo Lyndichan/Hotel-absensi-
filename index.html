@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Absensi</title>
+<style>
+  :root { --bg:#f4f6f8; --card:#fff; --ink:#1c2430; --mute:#6b7685; --line:#e2e6eb; --brand:#1f6feb; --ok:#1a7f4b; --warn:#b4540a; --bad:#c62828; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:var(--brand); color:#fff; padding:14px 16px; font-weight:600; font-size:18px; }
+  .wrap { max-width:600px; margin:0 auto; padding:12px; }
+  .tabs { display:flex; gap:8px; margin-bottom:12px; }
+  .tab { flex:1; padding:10px; border:1px solid var(--line); background:var(--card); border-radius:10px; font-size:15px; cursor:pointer; color:var(--ink); }
+  .tab.on { background:var(--brand); color:#fff; border-color:var(--brand); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; }
+  h2 { margin:0 0 10px; font-size:17px; }
+  label { display:block; font-size:13px; color:var(--mute); margin:10px 0 4px; }
+  input, button { font:inherit; }
+  input { width:100%; padding:10px; border:1px solid var(--line); border-radius:8px; background:#fff; }
+  button { padding:10px 14px; border:0; border-radius:8px; background:var(--brand); color:#fff; cursor:pointer; }
+  button:disabled { opacity:.5; }
+  button.ok { background:var(--ok); } button.warn { background:var(--warn); } button.ghost { background:#e9edf2; color:var(--ink); }
+  .row { display:flex; gap:8px; } .row > * { flex:1; }
+  .big { padding:18px; font-size:19px; }
+  .names { display:flex; gap:8px; margin:8px 0 14px; }
+  .name { flex:1; padding:16px; font-size:19px; background:#fff; color:var(--ink); border:2px solid var(--line); border-radius:12px; }
+  .name.on { border-color:var(--brand); background:#e8f0fe; color:var(--brand); font-weight:600; }
+  .jam { font-size:28px; font-weight:600; text-align:center; margin:4px 0; }
+  .tgl { text-align:center; color:var(--mute); font-size:14px; margin-bottom:8px; }
+  .msg { margin-top:12px; padding:10px; border-radius:8px; font-size:15px; display:none; }
+  .msg.show { display:block; } .msg.good { background:#e5f5ec; color:var(--ok); } .msg.err { background:#fdeaea; color:var(--bad); }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); }
+  th { color:var(--mute); font-weight:600; font-size:12px; }
+  .scroll { overflow-x:auto; }
+  .hide { display:none !important; }
+  .mute { color:var(--mute); font-size:13px; }
+</style>
+</head>
+<body>
+<header>Absensi</header>
+<div class="wrap">
+  <div class="tabs">
+    <button class="tab on" data-view="absen">Absen</button>
+    <button class="tab" data-view="rekap">Rekap</button>
+  </div>
+
+  <!-- ===== ABSEN ===== -->
+  <section id="view-absen">
+    <div class="card">
+      <div id="tgl" class="tgl"></div>
+      <div id="jam" class="jam">--:--:--</div>
+      <label>Pilih nama</label>
+      <div class="names" id="names"></div>
+      <div class="row">
+        <button class="big ok" id="btn-masuk">Masuk</button>
+        <button class="big warn" id="btn-pulang">Pulang</button>
+      </div>
+      <div id="msg" class="msg"></div>
+    </div>
+  </section>
+
+  <!-- ===== REKAP ===== -->
+  <section id="view-rekap" class="hide">
+    <div id="login-box" class="card">
+      <h2>Login untuk melihat rekap</h2>
+      <label for="adm-email">Email</label>
+      <input id="adm-email" type="email" autocomplete="username">
+      <label for="adm-pass">Password</label>
+      <input id="adm-pass" type="password" autocomplete="current-password">
+      <div style="margin-top:14px"><button id="btn-login">Masuk</button></div>
+      <div id="login-msg" class="msg"></div>
+    </div>
+
+    <div id="rekap-box" class="hide">
+      <div class="card">
+        <div class="row" style="align-items:end">
+          <div><label for="bulan">Bulan</label><input id="bulan" type="month"></div>
+          <button class="ghost" id="btn-logout" style="flex:0 0 auto">Keluar</button>
+        </div>
+        <div class="scroll" style="margin-top:10px"><table>
+          <thead><tr><th>Tanggal</th><th>Nama</th><th>Masuk</th><th>Pulang</th></tr></thead>
+          <tbody id="tb"></tbody>
+        </table></div>
+        <div style="margin-top:12px"><button id="btn-csv">Unduh Excel/CSV</button></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script src="firebase-config.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getFirestore, collection, addDoc, onSnapshot, query, where, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+
+// ===== Daftar staf (ubah di sini bila perlu) =====
+const STAF = [
+  { id: "raihan", nama: "Raihan" },
+  { id: "dika", nama: "Dika" }
+];
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+const pad = (n) => String(n).padStart(2, "0");
+const localDay = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const fmtT = (d) => d ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : "";
+const toDate = (ts) => ts && ts.toDate ? ts.toDate() : null;
+function showMsg(el, text, ok = true) { el.textContent = text; el.className = "msg show " + (ok ? "good" : "err"); }
+
+// ===== Konfigurasi Firebase (bisa format "export const" maupun "const" biasa) =====
+let CFG = null;
+try {
+  const m = await import("./firebase-config.js");
+  if (m.firebaseConfig) CFG = m.firebaseConfig;
+} catch (e) { console.warn("import config:", e); }
+if (!CFG && typeof firebaseConfig !== "undefined") CFG = firebaseConfig;
+if (!CFG || !CFG.projectId || String(CFG.projectId).startsWith("ISI_")) {
+  showMsg($("msg"), "Konfigurasi Firebase belum terisi atau tidak terbaca. Cek file firebase-config.js.", false);
+  throw new Error("firebase-config.js belum benar");
+}
+const app = initializeApp(CFG);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+// ===== Navigasi =====
+document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll("[data-view]").forEach((x) => x.classList.toggle("on", x === b));
+  $("view-absen").classList.toggle("hide", b.dataset.view !== "absen");
+  $("view-rekap").classList.toggle("hide", b.dataset.view !== "rekap");
+}));
+
+// ===== Jam =====
+function tick() {
+  const n = new Date();
+  $("jam").textContent = `${pad(n.getHours())}:${pad(n.getMinutes())}:${pad(n.getSeconds())}`;
+  $("tgl").textContent = n.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+}
+tick(); setInterval(tick, 1000);
+
+// ===== Pilih nama =====
+let pilih = null;
+$("names").innerHTML = STAF.map((s) => `<button class="name" data-id="${esc(s.id)}">${esc(s.nama)}</button>`).join("");
+$("names").addEventListener("click", (e) => {
+  const b = e.target.closest(".name");
+  if (!b) return;
+  pilih = STAF.find((s) => s.id === b.dataset.id);
+  document.querySelectorAll(".name").forEach((x) => x.classList.toggle("on", x === b));
+  $("msg").className = "msg";
+});
+
+// ===== Catat absen =====
+async function catat(type) {
+  if (!pilih) return showMsg($("msg"), "Pilih nama dulu.", false);
+  const label = type === "in" ? "MASUK" : "PULANG";
+  if (!confirm(`Catat ${label} untuk ${pilih.nama}?`)) return;
+  $("btn-masuk").disabled = $("btn-pulang").disabled = true;
+  try {
+    await addDoc(collection(db, "attendance"), { staffId: pilih.id, staffName: pilih.nama, type, ts: serverTimestamp(), day: localDay() });
+    showMsg($("msg"), `${pilih.nama}: ${label} tercatat pukul ${fmtT(new Date())}.`);
+  } catch (e) {
+    console.error(e);
+    showMsg($("msg"), "Gagal menyimpan. Cek internet, atau Rules Firestore belum di-Publish.", false);
+  }
+  $("btn-masuk").disabled = $("btn-pulang").disabled = false;
+}
+$("btn-masuk").addEventListener("click", () => catat("in"));
+$("btn-pulang").addEventListener("click", () => catat("out"));
+
+// ===== Login & rekap =====
+$("btn-login").addEventListener("click", async () => {
+  try { await signInWithEmailAndPassword(auth, $("adm-email").value.trim(), $("adm-pass").value); $("adm-pass").value = ""; }
+  catch (e) { showMsg($("login-msg"), "Email atau password salah.", false); }
+});
+$("btn-logout").addEventListener("click", () => signOut(auth));
+
+let unsub = null, rows = [];
+$("bulan").value = localDay().slice(0, 7);
+function watch() {
+  if (unsub) unsub();
+  const bln = $("bulan").value;
+  if (!bln) return;
+  const q = query(collection(db, "attendance"), where("day", ">=", bln + "-01"), where("day", "<=", bln + "-31"));
+  unsub = onSnapshot(q, (snap) => {
+    const recs = snap.docs.map((d) => d.data()).sort((a, b) => (toDate(a.ts)?.getTime() || 0) - (toDate(b.ts)?.getTime() || 0));
+    const map = new Map();
+    for (const r of recs) {
+      const key = r.day + "|" + r.staffId;
+      const row = map.get(key) || { day: r.day, nama: r.staffName, masuk: null, pulang: null };
+      const t = toDate(r.ts);
+      if (r.type === "in" && !row.masuk) row.masuk = t;
+      if (r.type === "out") row.pulang = t;
+      map.set(key, row);
+    }
+    rows = [...map.values()].sort((a, b) => b.day.localeCompare(a.day) || a.nama.localeCompare(b.nama));
+    $("tb").innerHTML = rows.map((r) => `<tr><td>${esc(r.day)}</td><td>${esc(r.nama)}</td><td>${fmtT(r.masuk) || "-"}</td><td>${fmtT(r.pulang) || "-"}</td></tr>`).join("")
+      || '<tr><td colspan="4" class="mute">Belum ada data bulan ini.</td></tr>';
+  }, console.error);
+}
+$("bulan").addEventListener("change", () => { if (auth.currentUser) watch(); });
+onAuthStateChanged(auth, (user) => {
+  if (unsub) { unsub(); unsub = null; }
+  $("login-box").classList.toggle("hide", !!user);
+  $("rekap-box").classList.toggle("hide", !user);
+  if (user) watch();
+});
+
+$("btn-csv").addEventListener("click", () => {
+  const data = [["Tanggal", "Nama", "Masuk", "Pulang"], ...rows.map((r) => [r.day, r.nama, fmtT(r.masuk), fmtT(r.pulang)])];
+  const csv = data.map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
+  a.download = `absensi-${$("bulan").value}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+</script>
+</body>
+</html>
